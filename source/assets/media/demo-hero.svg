@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-labelledby="title description">
+  <title id="title">Vela Method demo artwork</title>
+  <desc id="description">Abstract artwork created for a fictional SpyFu Site Audit demonstration site.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#19324d"/>
+      <stop offset="1" stop-color="#4f8f8b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="700" fill="url(#background)"/>
+  <circle cx="930" cy="150" r="230" fill="#ffffff" opacity="0.12"/>
+  <path d="M0 560 C250 430 470 690 720 535 C920 410 1070 470 1200 395 V700 H0Z" fill="#ffffff" opacity="0.16"/>
+  <text x="72" y="570" fill="#ffffff" font-family="Arial, sans-serif" font-size="58" font-weight="700">Vela Method</text>
+  <text x="76" y="625" fill="#ffffff" font-family="Arial, sans-serif" font-size="26">Fictional SpyFu demonstration artwork</text>
+</svg>

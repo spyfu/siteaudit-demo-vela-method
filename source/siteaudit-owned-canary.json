@@ -1,0 +1,82 @@
+{
+  "id": "p3-canary-vela-method",
+  "reviewPacket": "tests/fixtures/owned-canary-fleet.md",
+  "profile": "vela-method",
+  "layout": "commerce",
+  "surfaceModel": "premium skincare commerce with subscription loops",
+  "provider": "cloudflare-pages",
+  "status": "public",
+  "owner": "ops",
+  "url": "https://p3-canary-vela-method.xlpha.com/",
+  "stack": "headless-shopify-next",
+  "install": "both",
+  "pageCount": 6,
+  "representativePaths": [
+    "/",
+    "/collections/barrier-care/",
+    "/products/night-reset-serum/",
+    "/routine-builder/"
+  ],
+  "pages": [
+    {
+      "route": "/",
+      "title": "Vela Method | Barrier-support skincare and subscription routines",
+      "canonical": "https://p3-canary-vela-method.xlpha.com/",
+      "quirks": [
+        "routine-builder-loop",
+        "journal-to-subscription-loop"
+      ],
+      "eyebrow": "Barrier-support skincare"
+    },
+    {
+      "route": "/collections/barrier-care/",
+      "title": "Barrier-care collection | Vela Method",
+      "canonical": "https://p3-canary-vela-method.xlpha.com/collections/barrier-care/",
+      "quirks": [
+        "facet-query-links",
+        "collection-to-routine-loop"
+      ],
+      "eyebrow": "Barrier-care collection"
+    },
+    {
+      "route": "/products/night-reset-serum/",
+      "title": "Night reset serum | Vela Method",
+      "canonical": "https://p3-canary-vela-method.xlpha.com/collections/barrier-care/",
+      "quirks": [
+        "product-to-collection-canonical",
+        "duplicate-regimen-language"
+      ],
+      "eyebrow": "Flagship treatment"
+    },
+    {
+      "route": "/journal/why-your-cleanser-is-over-stripping/",
+      "title": "Why your cleanser is over-stripping | Vela Method Journal",
+      "canonical": "https://p3-canary-vela-method.xlpha.com/journal/why-your-cleanser-is-over-stripping/",
+      "quirks": [
+        "journal-to-commerce-loop",
+        "shared-cleanser-language"
+      ],
+      "eyebrow": "Journal"
+    },
+    {
+      "route": "/routine-builder/",
+      "title": "Routine builder | Vela Method",
+      "canonical": "https://p3-canary-vela-method.xlpha.com/routine-builder/",
+      "quirks": [
+        "query-state-builder",
+        "builder-to-support-loop"
+      ],
+      "eyebrow": "Routine builder"
+    },
+    {
+      "route": "/support/subscriptions/",
+      "title": "Subscriptions | Vela Method",
+      "canonical": "https://p3-canary-vela-method.xlpha.com/support/subscriptions/",
+      "quirks": [
+        "support-to-routine-loop",
+        "subscription-policy-overlap"
+      ],
+      "eyebrow": "Subscription support"
+    }
+  ]
+}

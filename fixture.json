@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "sampleId": "vela-method",
+  "sourceFixtureId": "p3-canary-vela-method",
+  "nestedPath": "/collections/barrier-care/",
+  "repository": "spyfu/siteaudit-demo-vela-method",
+  "cloudflarePagesProject": "siteaudit-demo-vela-method",
+  "productionBranch": "demo-01",
+  "publicUrl": "https://siteaudit-demo-vela-method.pages.dev/",
+  "editUrl": "https://github.com/spyfu/siteaudit-demo-vela-method/edit/demo-01/siteaudit-head.html"
+}
