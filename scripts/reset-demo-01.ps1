@@ -40,7 +40,7 @@ if ($LASTEXITCODE -ne 0 -or $resetCommit -notmatch '^[0-9a-f]{40}$') {
 }
 
 if ($PSCmdlet.ShouldProcess("$expectedRepository demo-01", "Push clean reset commit $resetCommit")) {
-    git push origin "$resetCommit:refs/heads/demo-01"
+    git push origin "${resetCommit}:refs/heads/demo-01"
     if ($LASTEXITCODE -ne 0) { throw 'The reset push failed.' }
     Write-Output "Pushed clean reset commit $resetCommit"
 }

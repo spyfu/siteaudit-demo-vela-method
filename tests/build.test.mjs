@@ -64,6 +64,12 @@ test("clean source contains no prior pixel or personal-account reference", async
   assert.ok(result.checkedFiles > 1);
 });
 
+test("reset script pushes the normal commit with an unambiguous refspec", async () => {
+  const resetScript = await readFile(resolve(REPOSITORY_ROOT, "scripts/reset-demo-01.ps1"), "utf8");
+  assert.match(resetScript, /git push origin "\$\{resetCommit\}:refs\/heads\/demo-01"/);
+  assert.doesNotMatch(resetScript, /git push origin "\$resetCommit:refs\//);
+});
+
 test("build is bounded and injects the editable region on the homepage and every nested page", async () => {
   const tempRoot = await mkdtemp(join(tmpdir(), "siteaudit-public-fixture-"));
   try {
