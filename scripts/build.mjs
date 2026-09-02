@@ -16,6 +16,13 @@ const RUNTIME_REFERENCE_RULES = [
   { label: "Site Audit runtime script path", pattern: /\/tag\/v1\.js/i },
   { label: "Site Audit pixel data attribute", pattern: /\bdata-sf\s*=/i },
 ];
+export const PRODUCTION_BRANCHES = Object.freeze([
+  "demo-01",
+  "demo-02",
+  "demo-03",
+  "demo-04",
+  "demo-05",
+]);
 
 function countOccurrences(value, needle) {
   return value.split(needle).length - 1;
@@ -49,26 +56,44 @@ function assertSafeOutputDirectory(outputDirectory, repositoryRoot, sourceDirect
   }
 }
 
+export function assertProductionBranch(env = process.env) {
+  const configuredBranch = typeof env.CF_PAGES_BRANCH === "string" ? env.CF_PAGES_BRANCH.trim() : "";
+  const branch = configuredBranch || PRODUCTION_BRANCHES[0];
+  if (!PRODUCTION_BRANCHES.includes(branch)) throw new Error(
+    "Cloudflare may build only demo-01 through demo-05; received " + branch + ".");
+  return branch;
+}
+
 export async function readFixtureConfig(repositoryRoot = REPOSITORY_ROOT) {
   const config = JSON.parse(await readFile(resolve(repositoryRoot, "fixture.json"), "utf8"));
-  if (config.schemaVersion !== 1) throw new Error("fixture.json schemaVersion must be 1.");
-  for (const field of ["sampleId", "sourceFixtureId", "repository", "cloudflarePagesProject", "productionBranch", "publicUrl", "editUrl", "nestedPath"]) {
+  if (config.schemaVersion !== 2) throw new Error("fixture.json schemaVersion must be 2.");
+  for (const field of ["sampleId", "sourceFixtureId", "repository", "cloudflarePagesProjectBase", "nestedPath"]) {
     assertString(config[field], "fixture.json " + field);
   }
   const expectedRepository = "spyfu/siteaudit-demo-" + config.sampleId;
-  const expectedProject = "siteaudit-demo-" + config.sampleId;
+  const expectedProjectBase = "siteaudit-demo-" + config.sampleId;
   if (config.repository !== expectedRepository) throw new Error("Repository must be " + expectedRepository + ".");
-  if (config.cloudflarePagesProject !== expectedProject) throw new Error("Pages project must be " + expectedProject + ".");
-  if (config.productionBranch !== "demo-01") throw new Error("Production branch must be demo-01.");
-  if (config.publicUrl !== "https://" + expectedProject + ".pages.dev/") throw new Error("Public URL does not match the Pages project.");
-  if (config.editUrl !== "https://github.com/" + expectedRepository + "/edit/demo-01/siteaudit-head.html") throw new Error("Edit URL does not match the repository and deployed branch.");
+  if (config.cloudflarePagesProjectBase !== expectedProjectBase) throw new Error(
+    "Pages project base must be " + expectedProjectBase + ".");
+  if (!Array.isArray(config.productionBranches)
+      || config.productionBranches.length !== PRODUCTION_BRANCHES.length
+      || config.productionBranches.some((branch, index) => branch !== PRODUCTION_BRANCHES[index])) {
+    throw new Error("fixture.json productionBranches must be exactly demo-01 through demo-05.");
+  }
   return config;
 }
 
-export function assertProductionBranch(env = process.env) {
-  const branch = typeof env.CF_PAGES_BRANCH === "string" ? env.CF_PAGES_BRANCH.trim() : "";
-  if (branch && branch !== "demo-01") throw new Error("Cloudflare may build only demo-01; received " + branch + ".");
-  return branch || "demo-01";
+export function resolveDeploymentConfig(config, branch) {
+  const productionBranch = assertProductionBranch({ CF_PAGES_BRANCH: branch });
+  const slotSuffix = productionBranch === "demo-01" ? "" : "-" + productionBranch.slice(-2);
+  const cloudflarePagesProject = config.cloudflarePagesProjectBase + slotSuffix;
+  return {
+    ...config,
+    cloudflarePagesProject,
+    productionBranch,
+    publicUrl: "https://" + cloudflarePagesProject + ".pages.dev/",
+    editUrl: "https://github.com/" + config.repository + "/edit/" + productionBranch + "/siteaudit-head.html",
+  };
 }
 
 export function findRuntimeReference(value) {
@@ -145,8 +170,9 @@ function injectFixtureContent(html, sourceLabel, editableHead) {
   return injected;
 }
 
-export async function buildFixture({ repositoryRoot = REPOSITORY_ROOT, outputDirectory = resolve(repositoryRoot, "dist") } = {}) {
-  const config = await readFixtureConfig(repositoryRoot);
+export async function buildFixture({ repositoryRoot = REPOSITORY_ROOT, outputDirectory = resolve(repositoryRoot, "dist"), env = process.env } = {}) {
+  const baseConfig = await readFixtureConfig(repositoryRoot);
+  const config = resolveDeploymentConfig(baseConfig, assertProductionBranch(env));
   const sourceDirectory = resolve(repositoryRoot, "source");
   assertSafeOutputDirectory(outputDirectory, repositoryRoot, sourceDirectory);
   const metadata = JSON.parse(await readFile(resolve(sourceDirectory, "siteaudit-owned-canary.json"), "utf8"));
@@ -180,7 +206,7 @@ export async function buildFixture({ repositoryRoot = REPOSITORY_ROOT, outputDir
     const contents = await readFile(path);
     if (contents.includes(Buffer.from(sourceOrigin))) throw new Error("Original canary origin remains in " + relative(outputDirectory, path));
   }
-  return { sampleId: config.sampleId, branch: assertProductionBranch(), publicUrl: config.publicUrl, htmlPages, rewrittenReferences, outputDirectory: resolve(outputDirectory) };
+  return { sampleId: config.sampleId, branch: config.productionBranch, cloudflarePagesProject: config.cloudflarePagesProject, publicUrl: config.publicUrl, editUrl: config.editUrl, htmlPages, rewrittenReferences, outputDirectory: resolve(outputDirectory) };
 }
 
 async function main() {
