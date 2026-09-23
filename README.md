@@ -17,11 +17,26 @@ Each Pages project must use its matching branch as the production branch and hav
 ## Demoer workflow
 
 1. Open the public site assigned by Fixture Console in Site Audit and create or select its project.
-2. In **Publish Setup**, copy that project's Site Audit stage pixel.
+2. In **Publish Setup**, copy that project's Site Audit snippet.
 3. Open the assigned header editor. Confirm GitHub is editing the exact assigned `demo-NN` branch, not `main`.
-4. Paste the pixel below `PASTE SITE AUDIT STAGE PIXEL BELOW THIS LINE` inside the realistic `<head>` context.
+4. Paste the snippet anywhere inside `<head>` in `siteaudit-head.html`. Placing it near the opening `<head>` tag works; no comment markers are required.
 5. Commit directly to the assigned branch with a short demo-specific message.
 6. Wait for that slot's Cloudflare deployment check to finish, then select **Check installation** in Site Audit.
+
+## The actual shared head
+
+`siteaudit-head.html` is the head template used by every generated page. Its
+tags, styles, and scripts are rendered in their written order. Edits outside
+the head fail the build instead of being silently ignored.
+
+The `{{ page.head }}` template expression inserts each page's title,
+description, canonical URL, social tags, and structured data from
+`page-heads.json`. Keep this expression so pages retain their own metadata.
+Page bodies in `source/` reference this template once; they do not contain a
+second competing head. The build still rewrites URLs to the assigned slot.
+
+To reset an installation manually, remove the snippet from this shared file,
+commit, and verify both the homepage and a nested page after deployment.
 
 ## Reset without rewriting history
 
