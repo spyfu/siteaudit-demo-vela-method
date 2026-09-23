@@ -1,15 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, cp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import test from "node:test";
 import {
-  EDITABLE_END,
-  EDITABLE_START,
   FICTIONAL_NOTICE,
-  HEAD_PASTE_MARKER,
-  INJECTION_END,
-  INJECTION_START,
   PRODUCTION_BRANCHES,
   REPOSITORY_ROOT,
   assertCleanHead,
@@ -19,6 +14,7 @@ import {
   readFixtureConfig,
   resolveDeploymentConfig,
 } from "../scripts/build.mjs";
+import { readHead, renderSharedHead, PAGE_HEAD_PLACEHOLDER } from "../scripts/shared-head.mjs";
 
 async function listFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -61,14 +57,13 @@ test("every demo branch maps to its own Pages project, public URL, and edit URL"
   }
 });
 
-test("editable header has realistic head context and a clean pixel region", async () => {
+test("editable file is the real shared head, with page-specific metadata supplied separately", async () => {
   const head = await readFile(resolve(REPOSITORY_ROOT, "siteaudit-head.html"), "utf8");
   assertCleanHead(head);
   assert.equal(count(head, "<head>"), 1);
   assert.equal(count(head, "</head>"), 1);
-  assert.equal(count(head, EDITABLE_START), 1);
-  assert.equal(count(head, EDITABLE_END), 1);
-  assert.equal(count(head, HEAD_PASTE_MARKER), 1);
+  assert.equal(count(head, PAGE_HEAD_PLACEHOLDER), 1);
+  assert.doesNotMatch(head, /SITEAUDIT-DEMO-INJECT|PASTE SITE AUDIT STAGE PIXEL/);
   assert.match(head, /<meta charset="utf-8">/);
   assert.match(head, /<meta name="viewport"/);
   assert.match(head, /<link rel="stylesheet"/);
@@ -108,9 +103,10 @@ for (const branch of PRODUCTION_BRANCHES) {
       assert.ok(htmlFiles.some((path) => relative(outputDirectory, path) !== "index.html"));
       for (const path of htmlFiles) {
         const html = await readFile(path, "utf8");
-        assert.equal(count(html, INJECTION_START), 1, relative(outputDirectory, path));
-        assert.equal(count(html, INJECTION_END), 1, relative(outputDirectory, path));
-        assert.equal(count(html, HEAD_PASTE_MARKER), 1, relative(outputDirectory, path));
+        const { head } = readHead(html);
+        assert.equal(head.childNodes.filter(node => node.tagName === "title").length, 1);
+        assert.equal(head.childNodes.filter(node => node.tagName === "meta" && node.attrs.some(attr => attr.name === "charset")).length, 1);
+        assert.doesNotMatch(html, /\{\{ page\.head \}\}|SITEAUDIT:SHARED_HEAD/);
         assert.equal(count(html, FICTIONAL_NOTICE), 1, relative(outputDirectory, path));
         assert.ok(html.includes(new URL(result.publicUrl).origin), relative(outputDirectory, path));
       }
@@ -124,3 +120,61 @@ for (const branch of PRODUCTION_BRANCHES) {
     }
   });
 }
+
+test("a snippet anywhere in the shared head reaches every page exactly once", async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "siteaudit-head-positions-"));
+  try {
+    for (const name of ["source", "fixture.json", "page-heads.json"]) {
+      await cp(resolve(REPOSITORY_ROOT, name), resolve(tempRoot, name), { recursive: true });
+    }
+    const clean = await readFile(resolve(REPOSITORY_ROOT, "siteaudit-head.html"), "utf8");
+    const pixel = '<script src="https://spyfucdn.com/tag/v1.js" data-sf="placement-test" async></script>';
+    const variants = [
+      clean.replace('<head>', '<head>\n' + pixel),
+      clean.replace('<meta charset', pixel + '\n<meta charset'),
+      clean.replace(PAGE_HEAD_PLACEHOLDER, pixel + '\n' + PAGE_HEAD_PLACEHOLDER),
+      clean.replace('<style>', pixel + '\n<style>'),
+      clean.replace('</head>', pixel + '\n</head>'),
+      clean.replace(/\s*<!--[\s\S]*?-->/g, '').replace('</head>', pixel + '\n</head>'),
+      clean.replace('</head>', pixel + '\n<!-- SITEAUDIT-DEMO-INJECT:START --><!-- SITEAUDIT-DEMO-INJECT:END -->\n</head>'),
+    ];
+    for (const [index, template] of variants.entries()) {
+      await writeFile(resolve(tempRoot, 'siteaudit-head.html'), template);
+      const outputDirectory = resolve(tempRoot, 'dist-' + index);
+      await buildFixture({ repositoryRoot: tempRoot, outputDirectory, env: { CF_PAGES_BRANCH: 'demo-01' } });
+      for (const path of (await listFiles(outputDirectory)).filter(path => path.endsWith('.html'))) {
+        const html = await readFile(path, 'utf8');
+        assert.equal(count(html, pixel), 1, 'position ' + index + ': ' + relative(outputDirectory, path));
+        const { head } = readHead(html);
+        assert.equal(head.childNodes.filter(node => node.tagName === 'script' && node.attrs.some(attr => attr.name === 'data-sf' && attr.value === 'placement-test')).length, 1);
+      }
+      await assert.rejects(checkCleanBaseline(tempRoot), /not clean/);
+    }
+    // Restoring just this file removes the pixel from every page again.
+    await writeFile(resolve(tempRoot, 'siteaudit-head.html'), clean);
+    await checkCleanBaseline(tempRoot);
+    const outputDirectory = resolve(tempRoot, 'reset');
+    await buildFixture({ repositoryRoot: tempRoot, outputDirectory, env: {} });
+    for (const path of (await listFiles(outputDirectory)).filter(path => path.endsWith('.html'))) {
+      assert.doesNotMatch(await readFile(path, 'utf8'), /placement-test|spyfucdn/);
+    }
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("all real head edits render, and JavaScript strings are not treated as HTML wrappers", () => {
+  const script = '<script>const text = "</head><body>$&";</script>';
+  const template = '<HEAD data-test="shared"><meta name="theme-color" content="blue">' + script + PAGE_HEAD_PLACEHOLDER + '</HEAD>';
+  const rendered = renderSharedHead(template, '<title>Page title</title>');
+  assert.equal(rendered, template.replace(PAGE_HEAD_PLACEHOLDER, '<title>Page title</title>'));
+  assert.equal(readHead(rendered).head.childNodes.filter(node => node.tagName === 'script').length, 1);
+});
+
+test("malformed or out-of-head content fails instead of being silently dropped", () => {
+  const good = '<head>' + PAGE_HEAD_PLACEHOLDER + '</head>';
+  for (const bad of [good + '<script>outside()</script>', '<script>outside()</script>' + good, good + '<head></head>', good.replace('</head>', ''), good.replace(PAGE_HEAD_PLACEHOLDER, ''), good.replace(PAGE_HEAD_PLACEHOLDER, PAGE_HEAD_PLACEHOLDER.repeat(2)), good.replace('</head>', '<div>body content</div></head>')]) {
+    assert.throws(() => renderSharedHead(bad, '<title>Test</title>'));
+  }
+  assert.throws(() => renderSharedHead(good, undefined), /Missing/);
+});
