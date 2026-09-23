@@ -1,14 +1,10 @@
 import { cp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, parse, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readHead, renderSharedHead, replaceSharedHead } from "./shared-head.mjs";
 
 const MODULE_PATH = fileURLToPath(import.meta.url);
 export const REPOSITORY_ROOT = resolve(dirname(MODULE_PATH), "..");
-export const HEAD_PASTE_MARKER = "<!-- PASTE SITE AUDIT STAGE PIXEL BELOW THIS LINE -->";
-export const EDITABLE_START = "<!-- SITEAUDIT-DEMO-INJECT:START -->";
-export const EDITABLE_END = "<!-- SITEAUDIT-DEMO-INJECT:END -->";
-export const INJECTION_START = "<!-- SITEAUDIT-HEAD:START -->";
-export const INJECTION_END = "<!-- SITEAUDIT-HEAD:END -->";
 export const FICTIONAL_NOTICE = "This is a fictional SpyFu Site Audit demonstration site. No business, products, credentials, or affiliations shown here are real.";
 const CLOUDFLARE_HEADERS = "/*\n  ! X-Robots-Tag\n";
 const RUNTIME_REFERENCE_RULES = [
@@ -23,10 +19,6 @@ export const PRODUCTION_BRANCHES = Object.freeze([
   "demo-04",
   "demo-05",
 ]);
-
-function countOccurrences(value, needle) {
-  return value.split(needle).length - 1;
-}
 
 function assertString(value, label) {
   if (typeof value !== "string" || value.trim() === "") throw new Error(
@@ -100,34 +92,23 @@ export function findRuntimeReference(value) {
   return RUNTIME_REFERENCE_RULES.find((rule) => rule.pattern.test(value))?.label ?? null;
 }
 
-export function extractEditableHead(headSource) {
-  if (countOccurrences(headSource, "<head>") !== 1 || countOccurrences(headSource, "</head>") !== 1) {
-    throw new Error("siteaudit-head.html must contain one recognizable <head> wrapper.");
-  }
-  if (countOccurrences(headSource, HEAD_PASTE_MARKER) !== 1
-      || countOccurrences(headSource, EDITABLE_START) !== 1
-      || countOccurrences(headSource, EDITABLE_END) !== 1) {
-    throw new Error("siteaudit-head.html must contain each edit marker exactly once.");
-  }
-  const start = headSource.indexOf(EDITABLE_START) + EDITABLE_START.length;
-  const end = headSource.indexOf(EDITABLE_END);
-  if (start >= end) throw new Error("Editable head markers are out of order.");
-  return headSource.slice(start, end).trim();
-}
-
 export function assertCleanHead(headSource) {
-  extractEditableHead(headSource);
+  const rendered = renderSharedHead(headSource, "");
   const runtimeReference = findRuntimeReference(headSource);
   if (runtimeReference) throw new Error("siteaudit-head.html is not clean: found " + runtimeReference + ".");
-  if (/<(?:script|iframe|object|embed)\b/i.test(headSource)) {
-    throw new Error("siteaudit-head.html is not clean: executable content is present.");
+  const { head } = readHead(rendered);
+  for (const node of head.childNodes.filter(node => node.tagName === "script")) {
+    const src = node.attrs.find(attribute => attribute.name === "src")?.value;
+    if (!/^\/assets\/site\.js(?:\?v=[a-f0-9]+)?$/.test(src ?? "")) {
+      throw new Error("siteaudit-head.html is not clean: non-baseline script is present.");
+    }
   }
 }
 
 export async function checkCleanBaseline(repositoryRoot = REPOSITORY_ROOT) {
   const headSource = await readFile(resolve(repositoryRoot, "siteaudit-head.html"), "utf8");
   assertCleanHead(headSource);
-  const paths = [resolve(repositoryRoot, "fixture.json"), ...await listFiles(resolve(repositoryRoot, "source"))];
+  const paths = [resolve(repositoryRoot, "fixture.json"), resolve(repositoryRoot, "page-heads.json"), ...await listFiles(resolve(repositoryRoot, "source"))];
   for (const path of paths) {
     const contents = (await readFile(path)).toString("latin1");
     const runtimeReference = findRuntimeReference(contents);
@@ -155,19 +136,18 @@ function replaceAllBytes(input, searchValue, replacementValue) {
   return { contents: Buffer.concat(chunks), count };
 }
 
-function injectFixtureContent(html, sourceLabel, editableHead) {
-  const closingHeads = html.match(/<\/head\s*>/gi) ?? [];
-  const bodies = html.match(/<body(?:\s[^>]*)?>/gi) ?? [];
-  if (closingHeads.length !== 1) throw new Error(sourceLabel + " must contain exactly one closing head tag.");
-  if (bodies.length !== 1) throw new Error(sourceLabel + " must contain exactly one body tag.");
-  if (html.includes(INJECTION_START) || html.includes(INJECTION_END) || html.includes("data-spyfu-demo-notice")) {
+function injectFixtureContent(html, sourceLabel, headSource, pageHead) {
+  html = replaceSharedHead(html, headSource, pageHead, sourceLabel);
+  const { document } = readHead(html, sourceLabel);
+  const root = document.childNodes.find(node => node.tagName === "html");
+  const body = root.childNodes.find(node => node.tagName === "body");
+  const bodyStart = body?.sourceCodeLocation?.startTag?.endOffset;
+  if (!bodyStart) throw new Error(sourceLabel + " must contain an explicit body tag.");
+  if (html.includes("data-spyfu-demo-notice")) {
     throw new Error(sourceLabel + " already contains fixture injection markers.");
   }
-  const headInjection = INJECTION_START + "\n" + editableHead + "\n" + INJECTION_END + "\n";
-  let injected = html.replace(/<\/head\s*>/i, (closing) => headInjection + closing);
   const notice = "<aside data-spyfu-demo-notice=\"true\" style=\"padding:10px 16px;background:#fff4ce;color:#4b3900;border-bottom:1px solid #d6b656;font:600 14px/1.45 system-ui,sans-serif;text-align:center\">" + FICTIONAL_NOTICE + "</aside>";
-  injected = injected.replace(/<body(?:\s[^>]*)?>/i, (opening) => opening + "\n" + notice);
-  return injected;
+  return html.slice(0, bodyStart) + "\n" + notice + html.slice(bodyStart);
 }
 
 export async function buildFixture({ repositoryRoot = REPOSITORY_ROOT, outputDirectory = resolve(repositoryRoot, "dist"), env = process.env } = {}) {
@@ -180,7 +160,7 @@ export async function buildFixture({ repositoryRoot = REPOSITORY_ROOT, outputDir
   const sourceOrigin = new URL(metadata.url).origin;
   const publicOrigin = new URL(config.publicUrl).origin;
   const headSource = await readFile(resolve(repositoryRoot, "siteaudit-head.html"), "utf8");
-  const editableHead = extractEditableHead(headSource);
+  const pageHeads = JSON.parse(await readFile(resolve(repositoryRoot, "page-heads.json"), "utf8"));
 
   await rm(outputDirectory, { recursive: true, force: true });
   await cp(sourceDirectory, outputDirectory, { recursive: true });
@@ -190,13 +170,15 @@ export async function buildFixture({ repositoryRoot = REPOSITORY_ROOT, outputDir
   let rewrittenReferences = 0;
   for (const path of await listFiles(outputDirectory)) {
     const original = await readFile(path);
-    const rewritten = replaceAllBytes(original, sourceOrigin, publicOrigin);
-    let contents = rewritten.contents;
-    rewrittenReferences += rewritten.count;
+    let contents = original;
     if (path.toLowerCase().endsWith(".html")) {
-      contents = Buffer.from(injectFixtureContent(contents.toString("utf8"), relative(outputDirectory, path), editableHead));
+      const pagePath = relative(outputDirectory, path).split(sep).join("/");
+      contents = Buffer.from(injectFixtureContent(contents.toString("utf8"), pagePath, headSource, pageHeads[pagePath]));
       htmlPages += 1;
     }
+    const rewritten = replaceAllBytes(contents, sourceOrigin, publicOrigin);
+    contents = rewritten.contents;
+    rewrittenReferences += rewritten.count;
     if (rewritten.count > 0 || path.toLowerCase().endsWith(".html")) await writeFile(path, contents);
   }
 
