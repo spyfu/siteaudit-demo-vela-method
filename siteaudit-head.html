@@ -1,17 +1,21 @@
-<!doctype html>
-<!-- This is the recognizable site-wide header source used during the demo. -->
 <head>
+  <!-- This shared head is rendered on every page. Paste the Site Audit snippet anywhere inside it. -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="referrer" content="strict-origin-when-cross-origin">
-  <meta name="theme-color" content="#19324d">
-  <title>Vela Method | Shared site header</title>
-  <link rel="icon" href="/assets/brand/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/assets/site.css">
-
-  <!-- Site-wide integrations loaded on every page belong in this region. -->
-  <!-- SITEAUDIT-DEMO-INJECT:START -->
-  <!-- PASTE SITE AUDIT STAGE PIXEL BELOW THIS LINE -->
-
-  <!-- SITEAUDIT-DEMO-INJECT:END -->
+  {{ page.head }}
+  <meta name="siteaudit-fixture-id" content="p3-canary-vela-method">
+  <meta name="siteaudit-fixture-stack" content="headless-shopify-next">
+  <meta name="siteaudit-canary-profile" content="vela-method">
+  <meta name="siteaudit-canary-layout" content="commerce">
+  <meta name="siteaudit-canary-surface-model" content="premium skincare commerce with subscription loops">
+  <meta name="siteaudit-canary-representative-paths" content="/, /collections/barrier-care/, /products/night-reset-serum/, /routine-builder/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700;9..144,800&family=Inter:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Libre+Franklin:wght@400;500;600;700&family=Libre+Caslon+Text:wght@400;700&family=Instrument+Sans:wght@400;500;600;700&family=Literata:opsz,wght@7..72,500;7..72,600;7..72,700&family=Merriweather:wght@400;700&family=Oswald:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=Roboto+Slab:wght@500;600;700&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+  <link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg?v=e9cb3dd01a16">
+  <link rel="stylesheet" href="/assets/site.css?v=e9cb3dd01a16">
+  <style>
+    :root {--accent: #7e8d87; --bg: #f6f4f1; --surface: #fffdfa; --surface-strong: #ffffff; --ink: #2c3536; --muted: #6e7877; --radius: 8px; --shadow: 0 24px 56px rgba(44, 53, 54, 0.09); --font-display: "Canela", "Cormorant Garamond", Georgia, serif; --font-body: "Soehne", "Segoe UI", sans-serif;}
+  </style>
+  <script src="/assets/site.js?v=e9cb3dd01a16" defer></script>
 </head>
