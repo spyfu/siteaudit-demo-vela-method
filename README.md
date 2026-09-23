@@ -2,15 +2,14 @@
 
 Public, intentionally fictional Site Audit demonstration fixture owned by the SpyFu organization.
 
-The clean reset source is `main`. Five mutable branches provide five independent demo slots:
+The clean reset source is `main`. Five mutable branches are reserved so the pool can expand without redesigning this repository. While the Cloudflare account limit is in effect, only `demo-01` and `demo-02` are operational and claimable:
 
-| Branch | Cloudflare Pages project | Public site | Header editor |
-| --- | --- | --- | --- |
-| `demo-01` | `siteaudit-demo-vela-method` | https://siteaudit-demo-vela-method.pages.dev/ | https://github.com/spyfu/siteaudit-demo-vela-method/edit/demo-01/siteaudit-head.html |
-| `demo-02` | `siteaudit-demo-vela-method-02` | https://siteaudit-demo-vela-method-02.pages.dev/ | https://github.com/spyfu/siteaudit-demo-vela-method/edit/demo-02/siteaudit-head.html |
-| `demo-03` | `siteaudit-demo-vela-method-03` | https://siteaudit-demo-vela-method-03.pages.dev/ | https://github.com/spyfu/siteaudit-demo-vela-method/edit/demo-03/siteaudit-head.html |
-| `demo-04` | `siteaudit-demo-vela-method-04` | https://siteaudit-demo-vela-method-04.pages.dev/ | https://github.com/spyfu/siteaudit-demo-vela-method/edit/demo-04/siteaudit-head.html |
-| `demo-05` | `siteaudit-demo-vela-method-05` | https://siteaudit-demo-vela-method-05.pages.dev/ | https://github.com/spyfu/siteaudit-demo-vela-method/edit/demo-05/siteaudit-head.html |
+| Branch | State | Cloudflare Pages project | Public site | Header editor |
+| --- | --- | --- | --- | --- |
+| `demo-01` | Operational | `siteaudit-demo-vela-method` | https://siteaudit-demo-vela-method.pages.dev/ | https://github.com/spyfu/siteaudit-demo-vela-method/edit/demo-01/siteaudit-head.html |
+| `demo-02` | Operational | `siteaudit-demo-vela-method-02` | https://siteaudit-demo-vela-method-02.pages.dev/ | https://github.com/spyfu/siteaudit-demo-vela-method/edit/demo-02/siteaudit-head.html |
+
+`demo-03` through `demo-05` are reserved and quarantined. A branch by itself is not a deployable slot. Do not use or advertise one of those branches until it has its own Pages project and root `pages.dev` URL, its production deployment has been verified, and Fixture Console marks the slot clean. Fixture Console is the authority for current availability.
 
 Each Pages project must use its matching branch as the production branch and have preview branch deployments disabled. A commit then deploys only the assigned slot; public pull requests and other branches are not deployment inputs.
 
@@ -45,10 +44,10 @@ An operator releases a slot only after restoring its exact branch to the tree fr
 ```powershell
 git clone https://github.com/spyfu/siteaudit-demo-vela-method.git
 Set-Location siteaudit-demo-vela-method
-./scripts/reset-demo-slot.ps1 -Branch demo-03
+./scripts/reset-demo-slot.ps1 -Branch demo-01
 ```
 
-The reset script accepts exactly `demo-01` through `demo-05`. It creates a new commit whose parent is the current slot head and whose tree is the clean `main` tree. It never force-pushes. Wait for the matching Pages project to redeploy, verify the pixel is gone on the homepage and a nested page, then mark the console slot clean with the new full commit SHA.
+The reset script accepts exactly `demo-01` through `demo-05`, but operators should reset and release only a slot that Fixture Console currently exposes as operational. It creates a new commit whose parent is the current slot head and whose tree is the clean `main` tree. It never force-pushes. Wait for the matching Pages project to redeploy, verify the pixel is gone on the homepage and a nested page, then mark the console slot clean with the new full commit SHA.
 
 ## Local verification
 
@@ -58,6 +57,6 @@ npm run check:clean
 npm run build
 ```
 
-A local build defaults to `demo-01`. Set `CF_PAGES_BRANCH` to one of the other four slot branches to verify its derived URL.
+A local build defaults to `demo-01`. Set `CF_PAGES_BRANCH` to `demo-02`, or to a later branch only after that slot has been separately activated, to verify its derived URL.
 
 The generated site contains a bounded sitemap and between five and eight HTML pages. Do not add credentials, real customer data, private publishing tokens, GitHub Actions, or deployment scripts that require secrets.
